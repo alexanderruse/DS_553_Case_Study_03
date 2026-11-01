@@ -1,0 +1,11 @@
+.env
+.DS_Store
+.Rhistory
+.ngrok/
+.ngrok.pid
+evidence/*.json
+evidence/*.md
+evidence/public_urls.txt
+logs/
+__pycache__/
+.pytest_cache/
