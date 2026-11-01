@@ -1,0 +1,100 @@
+x-app-common: &app-common
+  build:
+    context: .
+  image: ${DOCKERHUB_USERNAME:?Set DOCKERHUB_USERNAME in .env}/resumelens-cs3:${IMAGE_TAG:-v1}
+  restart: unless-stopped
+  networks: [resumelens]
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  api_product:
+    <<: *app-common
+    environment:
+      PRODUCT_MODE: api
+      ROOT_PATH: /api
+      HF_TOKEN: ${HF_TOKEN:?Set HF_TOKEN in .env}
+      REMOTE_MODEL: ${REMOTE_MODEL:-openai/gpt-oss-20b}
+      MAX_NEW_TOKENS: 512
+    ports:
+      - "127.0.0.1:${API_UI_PORT:?Claim and set API_UI_PORT}:7860"
+
+  local_product:
+    <<: *app-common
+    environment:
+      PRODUCT_MODE: local
+      ROOT_PATH: /local
+      LOCAL_MODEL: ${LOCAL_MODEL:-Qwen/Qwen3-0.6B}
+      HF_HOME: /home/resumelens/.cache/huggingface
+      MAX_NEW_TOKENS: 512
+    ports:
+      - "127.0.0.1:${LOCAL_UI_PORT:?Claim and set LOCAL_UI_PORT}:7860"
+    volumes:
+      - model_cache:/home/resumelens/.cache/huggingface
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:?Claim and set PROMETHEUS_PORT}:9090"
+    networks: [resumelens]
+    depends_on:
+      - api_product
+      - local_product
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SERVER_ROOT_URL: ${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL}/grafana/
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:?Claim and set GRAFANA_PORT}:3000"
+    networks: [resumelens]
+    depends_on:
+      - prometheus
+    security_opt:
+      - no-new-privileges:true
+
+  gateway:
+    image: nginx:1.31.8-alpine3.24
+    restart: unless-stopped
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./gateway/index.html:/usr/share/nginx/html/index.html:ro
+    ports:
+      - "127.0.0.1:${PUBLIC_GATEWAY_PORT:?Claim and set PUBLIC_GATEWAY_PORT}:8080"
+    networks: [resumelens]
+    depends_on:
+      - api_product
+      - local_product
+      - grafana
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  resumelens:
+    name: ${COMPOSE_PROJECT_NAME:?Set a unique COMPOSE_PROJECT_NAME}_network
+
+volumes:
+  model_cache:
+  prometheus_data:
+  grafana_data:
