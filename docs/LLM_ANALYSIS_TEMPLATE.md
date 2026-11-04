@@ -20,7 +20,7 @@ an API-backed product and a local CPU product. Analyze only the supplied data.
 Do not invent thresholds, incidents, causes, or request counts. If a query is empty,
 say that the snapshot does not contain enough evidence.
 
-## Human decision to write yourself
+## Human decision
 
 - Which recommendations do we accept, reject, or defer?
 - What exact metric values support that choice?
