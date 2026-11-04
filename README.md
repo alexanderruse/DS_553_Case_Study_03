@@ -64,11 +64,11 @@ history).
 
 ### Legacy Docker Compose 1.29 compatibility
 
-The class VM may provide the retired Python-based `docker-compose` 1.29 rather
+The VM uses the retired Python-based `docker-compose` 1.29 rather
 than the current Docker CLI plugin. Every project script uses
 `scripts/compose.sh`, which prefers `docker compose` and otherwise selects
 `docker-compose`. Before a legacy build, `scripts/up.sh` removes only containers
-with this project's Compose label. This prevents the legacy `ContainerConfig`
+with this project's Compose label, which prevents the legacy `ContainerConfig`
 recreation failure with current Docker Engine image metadata. Named volumes are
 preserved by default. Set `LEGACY_COMPOSE_RESET_VOLUMES=true` in `.env` only if
 the model cache and Prometheus/Grafana history may also be deleted.
@@ -145,7 +145,7 @@ docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REPOSITORY:$IMA
 
 ## Monitoring
 
-### Node Exporter (system metrics, container port 9100)
+### Node Exporter: system metrics, container port 9100
 
 The `Dockerfile` installs the Debian `prometheus-node-exporter` apt package.
 `docker-entrypoint.sh` starts it with `--web.listen-address=":9100"` next to
@@ -177,8 +177,6 @@ Grafana is provisioned with the Prometheus data source and the
 
 `scripts/collect_monitoring_snapshot.py` saves a timestamped JSON/Markdown
 snapshot of the key queries to `evidence/` for LLM analysis.
-
-## Class Google Sheet (manual)
 
 - Port range: **2100–2110**.
 - Container IPs: the output of `scripts/show_container_ips.sh` (api_product, local_product).
