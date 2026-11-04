@@ -2,7 +2,9 @@
 # standard: Gradio 7860, prometheus_client 8000, Node Exporter 9100.
 # Both products run the same image; only api_product builds it.
 x-app-common: &app-common
-  image: ${DOCKERHUB_USERNAME:?Set DOCKERHUB_USERNAME in .env}/resumelens-cs3:${IMAGE_TAG:-v1}
+  # Defaults to a local image. To publish it, set IMAGE_REPOSITORY to a full
+  # registry path such as alexandruse/resumelens-cs3.
+  image: ${IMAGE_REPOSITORY:-resumelens-cs3}:${IMAGE_TAG:-v1}
   restart: unless-stopped
   networks: [resumelens]
   security_opt:

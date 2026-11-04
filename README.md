@@ -46,7 +46,7 @@ the VM itself (`127.0.0.1`).
 ```bash
 git clone <this repository> resumelens && cd resumelens
 cp .env.example .env && chmod 600 .env
-nano .env        # DOCKERHUB_USERNAME, COMPOSE_PROJECT_NAME, GRAFANA_ADMIN_PASSWORD, NGROK_AUTHTOKEN
+nano .env        # Compose project, Grafana password, ngrok, and optional image repository
 scripts/up.sh    # supports docker compose and legacy docker-compose 1.29
 scripts/validate_stack.sh
 scripts/show_container_ips.sh
@@ -99,11 +99,21 @@ Free ngrok URLs show a one-time browser warning page before the app loads.
 
 ### Docker Hub
 
+Docker Hub configuration is optional. By default, Compose builds the local
+image `resumelens-cs3:v1`, so deployment and cleanup commands do not require a
+registry account. To publish the image, set this in `.env` first:
+
+```dotenv
+IMAGE_REPOSITORY=your-dockerhub-username/resumelens-cs3
+IMAGE_TAG=v1
+```
+
 ```bash
 docker login
 scripts/compose.sh build
 scripts/compose.sh push api_product   # both products share the same image tag
-docker image inspect --format '{{index .RepoDigests 0}}' "$DOCKERHUB_USERNAME/resumelens-cs3:v1"
+set -a; source .env; set +a
+docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REPOSITORY:$IMAGE_TAG"
 ```
 
 ## Modifications made for Docker

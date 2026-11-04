@@ -19,7 +19,7 @@ cd resumelens
 
 # 2. Create the private configuration.
 cp .env.example .env
-nano .env          # DOCKERHUB_USERNAME, COMPOSE_PROJECT_NAME, GRAFANA_ADMIN_PASSWORD, NGROK_AUTHTOKEN
+nano .env          # COMPOSE_PROJECT_NAME, Grafana password, ngrok, and optional IMAGE_REPOSITORY
 chmod 600 .env
 
 # 3. Confirm Docker is available and check the resolved configuration.

@@ -73,6 +73,13 @@ class StaticProjectTests(unittest.TestCase):
         self.assertNotIn("HF_TOKEN", compose)
         self.assertNotIn("HF_TOKEN", (ROOT / ".env.example").read_text())
 
+    def test_local_image_does_not_require_a_dockerhub_username(self) -> None:
+        compose = (ROOT / "docker-compose.yml").read_text()
+        env = (ROOT / ".env.example").read_text()
+        self.assertIn("${IMAGE_REPOSITORY:-resumelens-cs3}:${IMAGE_TAG:-v1}", compose)
+        self.assertNotIn("DOCKERHUB_USERNAME", compose)
+        self.assertNotIn("DOCKERHUB_USERNAME", env)
+
     def test_gateway_has_all_required_public_paths(self) -> None:
         config = (ROOT / "gateway" / "nginx.conf").read_text()
         for path in ("/api/", "/local/", "/grafana/"):
