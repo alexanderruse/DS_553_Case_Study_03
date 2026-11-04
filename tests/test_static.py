@@ -97,6 +97,8 @@ class StaticProjectTests(unittest.TestCase):
     def test_ngrok_log_fallback_and_gateway_restart_exist(self) -> None:
         up = (ROOT / "scripts" / "up.sh").read_text()
         self.assertIn("grep -oE 'url=https://[^ ]+'", up)
+        self.assertIn('label=com.docker.compose.service=grafana', up)
+        self.assertIn("compose up -d --no-deps grafana", up)
         self.assertIn("compose restart gateway", up)
 
 

@@ -72,6 +72,9 @@ with this project's Compose label. This prevents the legacy `ContainerConfig`
 recreation failure with current Docker Engine image metadata. Named volumes are
 preserved by default. Set `LEGACY_COMPOSE_RESET_VOLUMES=true` in `.env` only if
 the model cache and Prometheus/Grafana history may also be deleted.
+When Grafana needs its public ngrok URL applied, the legacy path removes and
+freshly creates only the Grafana container instead of using the incompatible
+Compose v1 force-recreation operation; its named data volume is still preserved.
 
 From a laptop, an SSH tunnel reaches services that are bound to 127.0.0.1:
 

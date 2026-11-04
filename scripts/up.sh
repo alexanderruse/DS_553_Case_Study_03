@@ -87,7 +87,20 @@ fi
 
 if [[ "${PUBLIC_BASE_URL:-}" != "$public_url" ]]; then
   # Recreate only Grafana so redirects and asset URLs use the public address.
-  PUBLIC_BASE_URL="$public_url" compose up -d --no-deps --force-recreate grafana
+  export PUBLIC_BASE_URL="$public_url"
+  if [[ "$COMPOSE_IS_LEGACY" == "true" ]]; then
+    # Compose 1.29 also fails when force-recreating this single service. Remove
+    # only this project's Grafana container, then create it from scratch.
+    compose stop grafana || true
+    while IFS= read -r container_id; do
+      [[ -z "$container_id" ]] || docker rm -f "$container_id"
+    done < <(docker ps -aq \
+      --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+      --filter "label=com.docker.compose.service=grafana")
+    compose up -d --no-deps grafana
+  else
+    compose up -d --no-deps --force-recreate grafana
+  fi
   # nginx resolves upstream service names at startup. Grafana recreation may
   # change its IP, so restart the gateway to avoid a stale-upstream 502.
   compose restart gateway
