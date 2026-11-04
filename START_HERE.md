@@ -24,19 +24,19 @@ chmod 600 .env
 
 # 3. Confirm Docker is available and check the resolved configuration.
 docker version
-docker compose version
-docker compose config --quiet
+scripts/compose.sh version
+scripts/compose.sh config --quiet
 
 # 4. Build, start, and publish (ngrok starts only if NGROK_AUTHTOKEN is set).
 scripts/up.sh
-docker compose ps
+scripts/compose.sh ps
 
 # 5. Validate both products and both kinds of monitoring.
 scripts/validate_stack.sh
 scripts/show_container_ips.sh
 ```
 
-Do not share the full output of `docker compose config`. It contains the
+Do not share the full output of `scripts/compose.sh config`. It contains the
 Grafana password and the ngrok token.
 
 ## Check it works

@@ -47,7 +47,7 @@ the VM itself (`127.0.0.1`).
 git clone <this repository> resumelens && cd resumelens
 cp .env.example .env && chmod 600 .env
 nano .env        # DOCKERHUB_USERNAME, COMPOSE_PROJECT_NAME, GRAFANA_ADMIN_PASSWORD, NGROK_AUTHTOKEN
-scripts/up.sh    # docker compose up -d --build, then ngrok URL discovery
+scripts/up.sh    # supports docker compose and legacy docker-compose 1.29
 scripts/validate_stack.sh
 scripts/show_container_ips.sh
 ```
@@ -58,9 +58,20 @@ URLs. When `NGROK_AUTHTOKEN` is set, it also writes them to
 the `model_cache` volume. The primary model is preloaded in the background at
 startup.
 
-Useful commands: `docker compose ps`, `docker compose logs -f local_product`,
-`docker compose down` (add `-v` to also delete the model cache and metrics
+Useful commands: `scripts/compose.sh ps`, `scripts/compose.sh logs -f local_product`,
+`scripts/compose.sh down` (add `-v` to also delete the model cache and metrics
 history).
+
+### Legacy Docker Compose 1.29 compatibility
+
+The class VM may provide the retired Python-based `docker-compose` 1.29 rather
+than the current Docker CLI plugin. Every project script uses
+`scripts/compose.sh`, which prefers `docker compose` and otherwise selects
+`docker-compose`. Before a legacy build, `scripts/up.sh` removes only containers
+with this project's Compose label. This prevents the legacy `ContainerConfig`
+recreation failure with current Docker Engine image metadata. Named volumes are
+preserved by default. Set `LEGACY_COMPOSE_RESET_VOLUMES=true` in `.env` only if
+the model cache and Prometheus/Grafana history may also be deleted.
 
 From a laptop, an SSH tunnel reaches services that are bound to 127.0.0.1:
 
@@ -82,7 +93,7 @@ tunnels to `gateway:8080`. One tunnel serves both products and Grafana:
 
 If `NGROK_AUTHTOKEN` is blank, the ngrok container logs
 `ngrok disabled: NGROK_AUTHTOKEN not set` and exits cleanly. Stop the tunnel
-with `docker compose stop ngrok`. Without a static domain, `up.sh` recreates
+with `scripts/compose.sh stop ngrok`. Without a static domain, `up.sh` recreates
 Grafana with the discovered URL so its redirects use the public address.
 Free ngrok URLs show a one-time browser warning page before the app loads.
 
@@ -90,8 +101,8 @@ Free ngrok URLs show a one-time browser warning page before the app loads.
 
 ```bash
 docker login
-docker compose build
-docker compose push api_product   # both products share the same image tag
+scripts/compose.sh build
+scripts/compose.sh push api_product   # both products share the same image tag
 docker image inspect --format '{{index .RepoDigests 0}}' "$DOCKERHUB_USERNAME/resumelens-cs3:v1"
 ```
 
@@ -126,7 +137,7 @@ docker image inspect --format '{{index .RepoDigests 0}}' "$DOCKERHUB_USERNAME/re
 The `Dockerfile` installs the Debian `prometheus-node-exporter` apt package.
 `docker-entrypoint.sh` starts it with `--web.listen-address=":9100"` next to
 the app, and the container exits if either process dies. Check it with
-`docker compose exec local_product curl -s localhost:9100/metrics | head`.
+`scripts/compose.sh exec local_product curl -s localhost:9100/metrics | head`.
 Node Exporter inside a container reports mostly host-level CPU and memory,
 not per-container cgroup usage.
 

@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [local-deploy-main]
+    branches: [main, local]
   pull_request:
-    branches: [local-deploy-main]
+    branches: [main, local]
   workflow_dispatch:
 permissions:
   contents: read

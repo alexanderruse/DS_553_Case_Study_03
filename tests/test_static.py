@@ -78,6 +78,20 @@ class StaticProjectTests(unittest.TestCase):
         for path in ("/api/", "/local/", "/grafana/"):
             self.assertIn(path, config)
 
+    def test_legacy_compose_workaround_is_scoped_to_this_project(self) -> None:
+        helper = (ROOT / "scripts" / "lib" / "compose.sh").read_text()
+        up = (ROOT / "scripts" / "up.sh").read_text()
+        self.assertIn("docker-compose", helper)
+        self.assertIn("COMPOSE_IS_LEGACY", helper)
+        self.assertIn("down_args=(down --remove-orphans)", up)
+        self.assertIn("label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}", up)
+        self.assertNotIn("docker system prune", up)
+
+    def test_ngrok_log_fallback_and_gateway_restart_exist(self) -> None:
+        up = (ROOT / "scripts" / "up.sh").read_text()
+        self.assertIn("grep -oE 'url=https://[^ ]+'", up)
+        self.assertIn("compose restart gateway", up)
+
 
 if __name__ == "__main__":
     unittest.main()

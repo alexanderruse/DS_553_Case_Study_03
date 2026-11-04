@@ -3,10 +3,13 @@ set -Eeuo pipefail
 
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
+# shellcheck source=scripts/lib/compose.sh
+source "$repo_dir/scripts/lib/compose.sh"
+compose_detect
 
 printf '%-22s %s\n' 'SERVICE' 'CONTAINER IP'
 for service in api_product local_product prometheus grafana gateway; do
-  container_id=$(docker compose ps -q "$service")
+  container_id=$(compose ps -q "$service")
   if [[ -z "$container_id" ]]; then
     printf '%-22s %s\n' "$service" 'NOT RUNNING'
     continue
