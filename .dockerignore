@@ -13,8 +13,10 @@ grafana
 prometheus
 gateway
 scripts
+cloud
 __pycache__
 *.pyc
 uv.lock
 README.md
 START_HERE.md
+case_study_3_report.*

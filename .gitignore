@@ -35,3 +35,8 @@ models/
 # Deployment token and runtime
 hf-token
 .runtime/
+
+# Generated cloud deployment files
+cloud/**/.env
+cloud/**/rendered-*.json
+cloud/**/deployment-output/

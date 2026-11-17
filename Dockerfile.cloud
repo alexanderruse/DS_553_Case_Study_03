@@ -1,0 +1,33 @@
+FROM python:3.11-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PRODUCT_MODE=api \
+    APP_PORT=8080
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl tini \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/resumelens
+
+COPY requirements-cloud.txt ./requirements.txt
+RUN python -m pip install --no-cache-dir -r requirements.txt
+
+COPY app.py ./
+COPY src/ ./src/
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin resumelens \
+    && chown -R resumelens:resumelens /opt/resumelens /home/resumelens
+
+USER resumelens
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl --fail --silent "http://127.0.0.1:${PORT:-${APP_PORT:-8080}}/" >/dev/null || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["python", "/opt/resumelens/app.py"]

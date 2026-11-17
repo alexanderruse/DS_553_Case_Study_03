@@ -24,6 +24,7 @@ if PRODUCT_MODE not in {"api", "local"}:
 
 ROOT_PATH = os.getenv("ROOT_PATH", "")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
+APP_PORT = int(os.getenv("PORT", os.getenv("APP_PORT", "7860")))
 METRICS_PORT = int(os.getenv("METRICS_PORT", "8000"))
 INFERENCE_TIMEOUT = float(os.getenv("INFERENCE_TIMEOUT", "300"))
 LOCAL_CONTEXT_SIZE = int(os.getenv("LOCAL_CONTEXT_SIZE", "4096"))
@@ -460,4 +461,4 @@ if __name__ == "__main__":
     start_http_server(METRICS_PORT)
     if PRODUCT_MODE == "local":
         threading.Thread(target=_warm_local_model, daemon=True).start()
-    demo.launch(server_name="0.0.0.0", server_port=7860, root_path=ROOT_PATH, share=False)
+    demo.launch(server_name="0.0.0.0", server_port=APP_PORT, root_path=ROOT_PATH, share=False)

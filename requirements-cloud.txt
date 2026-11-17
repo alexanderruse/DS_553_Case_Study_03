@@ -1,0 +1,6 @@
+# API-only dependencies for Cloud Run, Azure Container Apps, and AWS ECS.
+# The local llama.cpp model is intentionally excluded from the cloud image.
+gradio>=6,<7
+huggingface_hub>=1,<2
+prometheus-client>=0.21,<1
+python-dotenv>=1,<2
