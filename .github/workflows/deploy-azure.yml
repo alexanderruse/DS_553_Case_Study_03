@@ -42,11 +42,13 @@ jobs:
         run: python -m pytest -q
 
       - name: Log in to Azure
+        if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
         uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build and deploy API product
+        if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
         uses: azure/container-apps-deploy-action@v1
         with:
           appSourcePath: ${{ github.workspace }}
@@ -59,6 +61,7 @@ jobs:
           targetPort: 8080
 
       - name: Verify public application
+        if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP_NAME }}
@@ -70,3 +73,9 @@ jobs:
             --output tsv)
           curl --fail --show-error --silent --retry 12 --retry-delay 10 "https://${fqdn}/" >/dev/null
           printf 'Verified https://%s/\n' "$fqdn"
+
+      - name: Explain disabled Azure deployment
+        if: ${{ vars.AZURE_DEPLOY_ENABLED != 'true' }}
+        run: |
+          echo "Tests passed, but Azure deployment is disabled."
+          echo "Create the Azure resources and credentials, then set the repository variable AZURE_DEPLOY_ENABLED=true."

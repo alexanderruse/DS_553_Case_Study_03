@@ -6,6 +6,9 @@ from prometheus_client import REGISTRY
 import app
 
 ARGS = ("Resume", "General Resume Review", "", 512, 0.3)
+IMPORTED_PRODUCT_MODE = app.PRODUCT_MODE
+IMPORTED_PRIMARY_MODEL = app.PRIMARY_MODEL
+IMPORTED_BACKUP_MODEL = app.BACKUP_MODEL
 
 
 def sample(name, **labels):
@@ -63,8 +66,8 @@ def test_all_timeouts_are_classified(monkeypatch):
 
 
 def test_build_info_is_exported():
-    primary, backup = app.PRIMARY_MODEL, app.BACKUP_MODEL
     assert REGISTRY.get_sample_value("resumelens_build_info", {
-        "product": "local", "version": app.APP_VERSION,
-        "primary_model": primary, "backup_model": backup,
+        "product": IMPORTED_PRODUCT_MODE, "version": app.APP_VERSION,
+        "primary_model": IMPORTED_PRIMARY_MODEL,
+        "backup_model": IMPORTED_BACKUP_MODEL,
     }) == 1

@@ -37,4 +37,5 @@ def test_azure_workflow_uses_cloud_dockerfile() -> None:
     assert "azure/container-apps-deploy-action@v1" in workflow
     assert "dockerfilePath: Dockerfile.cloud" in workflow
     assert "targetPort: 8080" in workflow
+    assert "AZURE_DEPLOY_ENABLED == 'true'" in workflow
     assert "secrets.AZURE_CREDENTIALS" in workflow

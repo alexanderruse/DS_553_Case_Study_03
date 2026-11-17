@@ -1,17 +1,237 @@
-# ResumeLens AI — Case Study 3 (Docker + monitoring)
+# ResumeLens AI — Case Studies 3 and 4
 
-ResumeLens is a Gradio resume-review app. For Case Study 3 it ships as **two
-products built from one image**, each in its own container on the shared VM:
+ResumeLens is a Gradio resume-review application. The `case-study-4` branch
+extends the Docker work from Case Study 3 with an **API-only cloud image** and
+deployment scaffolding for GCP Cloud Run, Azure Container Apps, and AWS ECS
+Fargate. Case Study 4 deploys only the API-based product; the local llama.cpp
+product, Prometheus stack, Grafana, nginx, and ngrok configuration remain in
+the repository as the Case Study 3 implementation.
+
+Use synthetic or sanitized resumes for demonstrations. The Hugging Face token
+is entered in the API product's password field for each request and is not
+stored in the image or repository.
+
+## Case Study 4 status
+
+The cloud-neutral implementation is complete and locally validated, but no
+claim is made that the three live cloud deployments are complete. Account
+creation, billing/budget configuration, provider authentication, live resource
+creation, public URL testing, class Google Sheet entries, and report evidence
+must be completed by the group in its own cloud accounts.
+
+### Implemented on this branch
+
+- `Dockerfile.cloud` builds a non-root, API-only image without llama.cpp or
+  Node Exporter. It exposes container port 8080 and includes a health check.
+- `requirements-cloud.txt` contains only dependencies required by the hosted
+  API product.
+- `app.py` honors the provider-supplied `PORT` environment variable, falling
+  back to `APP_PORT` and then 7860 for older/local deployments.
+- `cloud/gcp/` contains a Cloud Build configuration and a Cloud Run deployment
+  script.
+- `cloud/azure/` contains an Azure Container Apps source-deployment script.
+- `cloud/aws/` contains an ECR build/push script and an ECS Fargate task
+  definition template.
+- `.github/workflows/deploy-azure.yml` tests, builds, publishes, deploys, and
+  verifies the API product on Azure after the required secret and repository
+  variables have been configured.
+- `tests/test_cloud_deployment.py` statically validates the cloud image and
+  provider scaffolding. The complete suite currently contains 49 tests.
+
+Local validation completed on November 17, 2026:
+
+- 49 tests passed in both the normal local test configuration and API mode.
+- All three provider shell scripts passed Bash syntax validation.
+- The AWS task-definition template parsed as valid JSON.
+- `Dockerfile.cloud` built successfully.
+- A live container smoke test served the application successfully with the
+  nondefault provider-style setting `PORT=18080`.
+
+These checks demonstrate that the portable image and deployment inputs are
+internally consistent. They do not substitute for screenshots and successful
+requests from actual GCP, Azure, and AWS deployments.
+
+## Case Study 4 architecture and ports
+
+Each provider runs the same API-only image:
+
+```text
+browser -> provider HTTPS URL -> managed container ingress -> ResumeLens:8080
+                                                       -> Hugging Face Inference API
+```
+
+The Case Study 3 host-port range `2100--2110` is not used by the managed cloud
+deployments. The cloud container normally listens on port 8080:
+
+| Setting | Purpose | When to change it |
+|---|---|---|
+| `PORT` | Port assigned by a managed platform, especially Cloud Run | Do not hard-code it; the platform supplies it |
+| `APP_PORT` | Explicit fallback port used by the image | Keep at 8080 unless a provider deployment uses a different target port |
+| Azure `targetPort` | Routes Container Apps ingress to the application | Must match the application port; currently 8080 |
+| ECS `containerPort` | Port targeted by the ECS service/load balancer | Must match the application port; currently 8080 |
+| `METRICS_PORT` | Internal Python Prometheus endpoint | Defaults to 8000; it is not publicly exposed by the cloud scaffold |
+
+If port 8080 is changed, update `Dockerfile.cloud`, the Azure workflow and
+deployment script, the Cloud Run `--port` argument, the ECS task definition,
+health checks, and any load-balancer target group together. A provider's public
+HTTPS port remains managed by that provider.
+
+## Local cloud-image validation
+
+From the repository root:
+
+```bash
+docker build -f Dockerfile.cloud -t resumelens-api:cs4 .
+docker run --rm -p 8080:8080 \
+  -e PRODUCT_MODE=api \
+  -e APP_PORT=8080 \
+  resumelens-api:cs4
+```
+
+Open <http://localhost:8080>, enter a personal Hugging Face inference token,
+and test with a synthetic resume. For code-only validation:
+
+```bash
+uv sync --locked
+uv run --locked python -m pytest -q
+PRODUCT_MODE=api uv run --locked python -m pytest -q
+```
+
+## Provider setup and values still required
+
+### GCP Cloud Run
+
+Before running the script, the group must create a GCP account/project, attach
+billing, create a budget with alerts, install/authenticate `gcloud`, and select
+the desired region.
+
+```bash
+gcloud auth login
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="us-central1"       # change if the group selects another region
+./cloud/gcp/deploy.sh
+```
+
+The script enables Cloud Run, Artifact Registry, and Cloud Build; creates the
+Artifact Registry repository when needed; builds the image; deploys one public
+Cloud Run service; and prints its URL. The project ID and region are deliberately
+not committed because they belong to the group's account.
+
+### Azure Container Apps
+
+The group must create an Azure account/subscription, configure a Cost Management
+budget, authenticate the Azure CLI, and choose globally valid resource names.
+
+```bash
+az login
+export AZURE_LOCATION="eastus"
+export AZURE_RESOURCE_GROUP="resumelens-cs4-rg"
+export AZURE_CONTAINER_APP="resumelens-api"
+./cloud/azure/deploy.sh
+```
+
+The manual script can create the resource group and deploy the source. The
+GitHub Action additionally requires these repository settings:
+
+| GitHub setting | Kind | Required value |
+|---|---|---|
+| `AZURE_DEPLOY_ENABLED` | Repository variable | Leave unset/false during setup; set to `true` when the resources and credentials below are ready |
+| `AZURE_CREDENTIALS` | Environment/repository secret | Azure service-principal credential JSON; never commit it |
+| `AZURE_ACR_NAME` | Repository variable | Existing Azure Container Registry name, without `.azurecr.io` |
+| `AZURE_CONTAINER_APP_NAME` | Repository variable | Target Container App name |
+| `AZURE_RESOURCE_GROUP` | Repository variable | Resource group containing the cloud resources |
+
+The service principal must have enough access to push to the registry and
+create/update the Container App. Until `AZURE_DEPLOY_ENABLED=true`, branch
+pushes run the tests but deliberately skip Azure login, build, deployment, and
+verification. The workflow does not need a Hugging Face token because users
+enter their own token in the UI.
+
+### AWS ECS Fargate
+
+The group must create an AWS account, enable AWS Budgets alerts, authenticate
+the AWS CLI, and select a region.
+
+```bash
+aws configure
+export AWS_REGION="us-east-1"
+./cloud/aws/build-and-push.sh
+```
+
+The script creates/reuses an ECR repository and pushes an amd64 image. AWS still
+requires account-specific infrastructure: an ECS task execution role, CloudWatch
+log group, VPC/subnets, security groups, ECS cluster/service, Application Load
+Balancer, target group, and public listener. Replace `<AWS_ACCOUNT_ID>`,
+`<AWS_REGION>`, and `<IMAGE_TAG>` in a generated copy of
+`cloud/aws/task-definition.json`; do not commit a rendered file containing
+account identifiers. The load balancer target port and health check must remain
+consistent with container port 8080.
+
+## GitHub Actions behavior
+
+Two workflows run on `case-study-4`:
+
+- `Tests` performs the repository test suite without deploying anything.
+- `Deploy API product to Azure Container Apps` first runs the tests, then logs
+  into Azure, builds/pushes the image, deploys the Container App, and verifies
+  its public URL when `AZURE_DEPLOY_ENABLED=true`. Otherwise it reports that
+  deployment is disabled and exits successfully after testing.
+
+If **Run tests** fails, Azure login has not happened yet, so the cause is a test
+or workflow-environment problem rather than missing Azure credentials. If
+**Log in to Azure** fails after the tests pass, check `AZURE_CREDENTIALS`. If
+the build/deploy step fails, check the three repository variables, service
+principal permissions, ACR existence, resource names, region, and quota.
+
+## Case Study 4 rubric checklist
+
+| Rubric requirement | Code status | Evidence/action still required |
+|---|---|---|
+| GCP account (3) | Not representable in code | Create account/project and capture evidence |
+| GCP cost monitoring (3) | Pending manual setup | Configure budget/alerts and screenshot them |
+| GCP API deployment (10) | Script/image ready | Deploy, test a real request, and document changes |
+| GCP Sheet URL (4) | Pending live deployment | Enter external URL and screenshot the row |
+| Azure account (3) | Not representable in code | Create/verify subscription and capture evidence |
+| Azure cost monitoring (3) | Pending manual setup | Configure budget/alerts and screenshot them |
+| Azure API deployment (10) | Script/image ready | Deploy, test a real request, and document changes |
+| Azure Sheet URL (4) | Pending live deployment | Enter external URL and screenshot the row |
+| AWS account (3) | Not representable in code | Create account and capture evidence |
+| AWS cost monitoring (3) | Pending manual setup | Configure AWS Budget/alerts and screenshot them |
+| AWS API deployment (10) | Image/task scaffold ready | Provision ECS/ALB, test, and document changes |
+| AWS Sheet URL (4) | Pending live deployment | Enter load-balancer URL and screenshot the row |
+| Project report (25) | Not completed by this scaffold | Names; three setup sections; challenges; full LLM prompt/model/response; provider decision |
+| GitHub Action (15) | Workflow implemented | Configure Azure settings and retain a successful automatic deployment run |
+| Vertex AI extra credit (+10) | Not implemented | Add Vertex inference, sample request/response, tests, and report documentation if attempted |
+
+For every live provider deployment, retain the commit hash, budget screenshot,
+deployment/revision screenshot, public URL, successful synthetic request and
+response, relevant logs, and the completed Google Sheet row. Budgets are alerts,
+not guaranteed hard spending caps; remove billable resources after grading if
+they are no longer needed.
+
+See `cloud/README.md` and each provider subdirectory for shorter command-focused
+instructions.
+
+Current implementation references:
+
+- [GCP `gcloud run deploy` reference](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy)
+- [Azure Container Apps deployment action](https://github.com/Azure/container-apps-deploy-action/blob/main/README.md)
+- [AWS ECS task definitions for Fargate](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html)
+
+## Case Study 3 reference
+
+For Case Study 3, ResumeLens ships as **two products built from one image**,
+each in its own container on the shared VM:
 
 | Product | `PRODUCT_MODE` | Models (primary → backup) | HF token |
 |---|---|---|---|
 | API-based | `api` | `openai/gpt-oss-20b` → `zai-org/GLM-5.3-Flash` (Hugging Face Inference API) | Typed into the web UI per request |
 | Locally executed | `local` | Qwen3 0.6B Q4_K_M (`unsloth/Qwen3-0.6B-GGUF`) → LFM2.5 1.2B QAD-Q4_0 (`LiquidAI/LFM2.5-1.2B-Instruct-GGUF`), run with llama.cpp on the container CPU | Not needed |
 
-Both containers also run Prometheus Node Exporter (container port 9100) and
+Both Case Study 3 containers also run Prometheus Node Exporter (container port 9100) and
 expose application metrics with `prometheus_client` (container port 8000).
 Prometheus, Grafana, an nginx gateway and an optional ngrok tunnel run as
-separate containers. Use synthetic or sanitized resumes for demonstrations.
+separate containers.
 
 ## Architecture and ports
 
